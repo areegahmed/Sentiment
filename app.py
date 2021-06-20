@@ -24,7 +24,7 @@ import plotly.express as px
 
 pd.set_option('max_colwidth', 700)
 
-deselect_stop_words = ['plus','aucun','ni','aucune','rien','quot','amp','nbsp']
+deselect_stop_words = ['plus','aucun','ni','aucune','rien','quot','amp','nbsp','ème']
 stop_words = set(STOP_WORDS).union(set(deselect_stop_words))
 
 
