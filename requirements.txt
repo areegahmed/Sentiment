@@ -7,3 +7,4 @@ spacy==3.0.6
 plotly==4.14.3
 xlrd==1.2.0
 openpyxl==3.0.5
+click==7.1.2
