@@ -65,7 +65,7 @@ def clean_text(text):
 def send_emails(emails_list,sender_email, password, text):
 
     message = MIMEMultipart("alternative")
-    message["Subject"] = "Hello from CBP!"
+    message["Subject"] = "Salut de CBP!"
     message["From"] = sender_email
     
     for receiver_email in emails_list:
@@ -258,7 +258,7 @@ def main():
 
         sender_email = 'CBPHelpBot@gmail.com'
         password = "G'vxC}=76(6kf$K`"
-        text = 'hi there!'
+        text = "Bonjour, \nDésolé pour l'expérience que vous avez vécue, un membre de notre équipe vous contactera dans les plus brefs délais.\n\n Merci de votre compréhension\n Sincères salutations,\nÉquipe de Support Client"
         send_emails(emails_list,sender_email,password, text)
         st.markdown('<center><h2>Emails are sent successfully to all authors with negative reviews!</h2></center></br></br>', unsafe_allow_html= True)
 
