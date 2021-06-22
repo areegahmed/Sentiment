@@ -20,10 +20,12 @@ from collections import OrderedDict
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import plotly.express as px
-
+from datetime import datetime
 import smtplib, ssl, email,imaplib
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email import encoders
 
 
 pd.set_option('max_colwidth', 700)
@@ -62,14 +64,15 @@ def clean_text(text):
 
 
 
-def send_emails(emails_list,sender_email, password, text):
-
+def send_emails(emails_list,contents_list,sender_email, password):
+    
     message = MIMEMultipart("alternative")
     message["Subject"] = "Salut de CBP!"
     message["From"] = sender_email
     
-    for receiver_email in emails_list:
-    
+    for index, receiver_email in enumerate(emails_list):
+        text = "Bonjour, \n\nDésolé pour l'expérience que vous avez vécue, nous avons vu cette critique de la vôtre et votre opinion compte pour nous.\n\n" +'"'+ contents_list[index]+'"'+ "\n\nUn membre de notre équipe vous contactera dans les plus brefs délais.\n\n Merci de votre compréhension.\n\nSincères salutations,\nÉquipe de Support Client"
+         
         message["To"] = str(receiver_email).strip()
 
         #Turn these into plain/html MIMEText objects
@@ -87,7 +90,56 @@ def send_emails(emails_list,sender_email, password, text):
             server.sendmail(sender_email, receiver_email,  message.as_string())
             server.quit()
 
+            
+            
+def send_email_attach(receiver_email, body, df, sender_email, password):
+    today_date = "{:%Y-%m-%d}".format(datetime.now())
+    #df.drop('Review_Cleaned', axis='columns', inplace= True)
+    df = df.drop(['Review_Cleaned'], axis='columns')
+    df.to_csv(today_date + '_Avis_Negatifs.csv', index = False)
+    #Create a multipart message and set headers
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message["Subject"] = "Avis Négatifs des Clients"
+    message["Bcc"] = receiver_email  #Recommended for mass emails
 
+    #Add body to email
+    message.attach(MIMEText(body, "plain"))
+
+    filename = today_date + "_Avis_Negatifs.csv"  #In same directory as script
+
+    # Open csv file in binary mode
+    with open(filename, "rb") as attachment:
+        
+        # Add file as application/octet-stream
+        # Email client can usually download this automatically as attachment
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(attachment.read())
+
+    #Encode file in ASCII characters to send by email    
+    encoders.encode_base64(part)
+
+    #Add header as key/value pair to attachment part
+    part.add_header(
+        "Content-Disposition",
+        f"attachment; filename= {filename}",
+    )
+
+    # Add attachment to message and convert message to string
+    message.attach(part)
+    text = message.as_string()
+    
+    context = ssl.create_default_context()
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        server.login(sender_email, password)
+        #Send email
+        server.sendmail(sender_email, receiver_email, text)
+        server.quit()
+        
+        
+        
 def map_keyword_review_df(keywords_list, df):
 
     cols = df.columns.tolist() + ['Keyword']
@@ -99,7 +151,7 @@ def map_keyword_review_df(keywords_list, df):
            
             if keyword in row['Review_Cleaned']:
                 
-                keyword_review_df.loc[-1] = [row['Email'],row['Review'], row['Review_Cleaned'], row['Sentiment'], keyword]
+                keyword_review_df.loc[-1] = [row['Email'],row['Review'], row['Review_Cleaned'], row['Sentiment'],row['Section'], keyword]
                 keyword_review_df.index = keyword_review_df.index + 1  # shifting index
                 keyword_review_df = keyword_review_df.sort_index() 
                 
@@ -233,7 +285,8 @@ def main():
     inferred_sentiments = infer_sentiment_multiple(data)
     data['Sentiment'] = inferred_sentiments.tolist()
     
-    data_wo_cleaned = data.drop('Review_Cleaned', axis='columns')
+    data_wo_cleaned = data.drop(['Review_Cleaned','Section'], axis='columns')
+    
     data_wo_cleaned.set_index(['Email','Review','Sentiment'], inplace=True)
 
    
@@ -250,18 +303,36 @@ def main():
     
     }
     </style>""", unsafe_allow_html=True)
-    custom_button = st.button("Send Follow-up Emails to Users with Negative Reviews")
+    clients_button = st.button("Send Follow-up Emails to Clients with Negative Reviews")
+    
+    sender_email = 'CBPHelpBot@gmail.com'
+    password = "G'vxC}=76(6kf$K`"
 
-    if custom_button:
-        emails_list = data['Email'].loc[data['Sentiment'] == 'Negative'].tolist() 
-        #emails_list = data['Email'].tolist()
+    negatives_df = data.loc[data['Sentiment'] == 'Negative']
 
-        sender_email = 'CBPHelpBot@gmail.com'
-        password = "G'vxC}=76(6kf$K`"
-        text = "Bonjour, \n\nDésolé pour l'expérience que vous avez vécue, un membre de notre équipe vous contactera dans les plus brefs délais.\n\n Merci de votre compréhension.\n\nSincères salutations,\nÉquipe de Support Client"
-        send_emails(emails_list,sender_email,password, text)
-        st.markdown('<center><h2>Emails are sent successfully to all authors with negative reviews!</h2></center></br></br>', unsafe_allow_html= True)
+    
+    if clients_button:
+        negative_reviews_list = negatives_df['Review'].tolist() 
+        negative_emails_list = negatives_df['Email'].tolist()
+        send_emails(negative_emails_list,negative_reviews_list, sender_email, password)
+        #st.markdown('<center><h2>Emails are sent successfully to all clients with negative reviews!</h2></center></br></br>', unsafe_allow_html= True)
+        st.success("Emails are sent successfully to all clients with negative reviews!")
 
+    crm_email = st.text_input('') 
+    crm_button = st.button("Send Notification to Entered CRM Email")
+        
+    if crm_button and crm_email!='' and bool(re.search(r"^[\w\.\+\-]+\@[\w.-]+\.[a-z]{2,3}$", crm_email))==True:    
+        #crm_email = 'CBP.CRM.Team@gmail.com'
+        mail_body = "Bonjour, \n\nVeuillez trouver le fichier joint des clients avec des avis négatifs. \n\nCordialement, "
+        
+        send_email_attach(crm_email, mail_body, negatives_df, sender_email, password)
+        #st.markdown('<center><h2>Email is sent successfully with all clients negative reviews to entered CRM email!</h2></center></br></br>', unsafe_allow_html= True)
+        st.success("Email is sent successfully with all clients negative reviews to "+ crm_email)
+     
+    
+    elif crm_button and (crm_email=='' or bool(re.search(r"^[\w\.\+\-]+\@[\w.-]+\.[a-z]{2,3}$", crm_email))==False): 
+        #st.markdown('<center><p style="color:red">Please enter valid email</p></center></br></br>', unsafe_allow_html= True)
+        st.error("Please enter valid email")
         
         
     keywords_df = get_keywords(data)
