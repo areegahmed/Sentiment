@@ -21,6 +21,10 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import plotly.express as px
 
+import smtplib, ssl, email,imaplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 
 pd.set_option('max_colwidth', 700)
 
@@ -34,7 +38,7 @@ def remove_stopwords(text):
 
 
 #adding special characters that are not covered in punctuation
-english_punctuations = set(string.punctuation).    union({'–', '®', '«', '»','★','☆','▪','�','➢','❖','❑','◼','⟳','•','→','●','’'})
+english_punctuations = set(string.punctuation).union({'–', '®', '«', '»','★','☆','▪','�','➢','❖','❑','◼','⟳','•','→','●','’'})
 
 def clean_text(text):
     text = str(text)
@@ -58,6 +62,32 @@ def clean_text(text):
 
 
 
+def send_emails(emails_list,sender_email, password, text):
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "Hello from CBP!"
+    message["From"] = sender_email
+    
+    for receiver_email in emails_list:
+    
+        message["To"] = str(receiver_email).strip()
+
+        #Turn these into plain/html MIMEText objects
+        part1 = MIMEText(text, "plain")
+ 
+        message.attach(part1)
+  
+        port = 465  #For SSL
+        #Create a secure SSL context
+        context = ssl.create_default_context()
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
+            server.login(sender_email, password)
+            #Send email
+            server.sendmail(sender_email, receiver_email,  message.as_string())
+            server.quit()
+
+
 def map_keyword_review_df(keywords_list, df):
 
     cols = df.columns.tolist() + ['Keyword']
@@ -69,7 +99,7 @@ def map_keyword_review_df(keywords_list, df):
            
             if keyword in row['Review_Cleaned']:
                 
-                keyword_review_df.loc[-1] = [row['Review'], row['Review_Cleaned'], row['Sentiment'], keyword]
+                keyword_review_df.loc[-1] = [row['Email'],row['Review'], row['Review_Cleaned'], row['Sentiment'], keyword]
                 keyword_review_df.index = keyword_review_df.index + 1  # shifting index
                 keyword_review_df = keyword_review_df.sort_index() 
                 
@@ -180,6 +210,7 @@ def main():
    
     st.title("CBP Reviews Sentiment Analysis")
     
+    
     file = st.file_uploader("", type=["csv","xlsx"])
     show_file = st.empty()
     
@@ -203,11 +234,35 @@ def main():
     data['Sentiment'] = inferred_sentiments.tolist()
     
     data_wo_cleaned = data.drop('Review_Cleaned', axis='columns')
-    data_wo_cleaned.set_index(['Review','Sentiment'], inplace=True)
+    data_wo_cleaned.set_index(['Email','Review','Sentiment'], inplace=True)
 
    
     st.markdown(data_wo_cleaned.to_html(), unsafe_allow_html = True)
+    #div.stButton > button:first-child {
+    md = st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+    height:80px; width:700px;
+    color: rgb(255, 255, 255);
+    background-color: rgb(0, 0, 0);
+    font-size : 22px; 
+    font-weight: bold;
+    
+    }
+    </style>""", unsafe_allow_html=True)
+    custom_button = st.button("Send Follow-up Emails to Users with Negative Reviews")
 
+    if custom_button:
+         
+        emails_list = data['Email'].tolist()
+        sender_email = 'CBPHelpBot@gmail.com'
+        password = "G'vxC}=76(6kf$K`"
+        text = 'hi there!'
+        send_emails(emails_list,sender_email,password, text)
+        st.markdown('<center><h2>Emails are sent successfully to all authors with negative reviews!</h2></center></br></br>', unsafe_allow_html= True)
+
+        
+        
     keywords_df = get_keywords(data)
     
     keywords_list = keywords_df['Word'].tolist()
