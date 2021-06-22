@@ -238,7 +238,7 @@ def main():
 
    
     st.markdown(data_wo_cleaned.to_html(), unsafe_allow_html = True)
-    #div.stButton > button:first-child {
+   
     md = st.markdown("""
     <style>
     div.stButton > button:first-child {
@@ -253,8 +253,9 @@ def main():
     custom_button = st.button("Send Follow-up Emails to Users with Negative Reviews")
 
     if custom_button:
-         
-        emails_list = data['Email'].tolist()
+        emails_list = data['Email'].loc[data['Sentiment'] == 'Negative'].tolist() 
+        #emails_list = data['Email'].tolist()
+
         sender_email = 'CBPHelpBot@gmail.com'
         password = "G'vxC}=76(6kf$K`"
         text = 'hi there!'
