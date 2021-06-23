@@ -151,7 +151,7 @@ def map_keyword_review_df(keywords_list, df):
            
             if keyword in row['Review_Cleaned']:
                 
-                keyword_review_df.loc[-1] = [row['Email'],row['Review'], row['Review_Cleaned'], row['Sentiment'],row['Section'], keyword]
+                keyword_review_df.loc[-1] = [row['Email'],row['Review'],row['Section'], row['Review_Cleaned'], row['Sentiment'], keyword]
                 keyword_review_df.index = keyword_review_df.index + 1  # shifting index
                 keyword_review_df = keyword_review_df.sort_index() 
                 
