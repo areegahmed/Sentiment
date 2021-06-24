@@ -28,7 +28,6 @@ from email.mime.text import MIMEText
 from email import encoders
 
 
-pd.set_option('max_colwidth', 700)
 
 deselect_stop_words = ['plus','aucun','ni','aucune','rien','quot','amp','nbsp','ème']
 stop_words = set(STOP_WORDS).union(set(deselect_stop_words))
@@ -69,8 +68,8 @@ def send_emails(emails_list,contents_list,sender_email, password):
     message = MIMEMultipart("alternative")
     message["Subject"] = "Salut de CBP!"
     message["From"] = sender_email
-    
-    for index, receiver_email in enumerate(emails_list):
+    emails_list = [x for x in emails_list if x.strip()] 
+    for index, receiver_email in enumerate(emails_list[:10]):
         text = "Bonjour, \n\nDésolé pour l'expérience que vous avez vécue, nous avons vu cette critique de la vôtre et votre opinion compte pour nous.\n\n" +'"'+ contents_list[index]+'"'+ "\n\nUn membre de notre équipe vous contactera dans les plus brefs délais.\n\n Merci de votre compréhension.\n\nSincères salutations,\nÉquipe de Support Client"
          
         message["To"] = str(receiver_email).strip()
@@ -281,16 +280,22 @@ def main():
     else:
         st.error('Please upload csv or excel file')
         return False
-
+    
+    data = data.fillna('')
     inferred_sentiments = infer_sentiment_multiple(data)
     data['Sentiment'] = inferred_sentiments.tolist()
     
     data_wo_cleaned = data.drop(['Review_Cleaned','Section'], axis='columns')
     
-    data_wo_cleaned.set_index(['Email','Review','Sentiment'], inplace=True)
 
-   
+    pd.set_option('max_colwidth', 200)
+    #st.table(data_wo_cleaned.head(500)) #to display it as a table
+    
+    data_wo_cleaned = data_wo_cleaned.iloc[0:100,:]
+    data_wo_cleaned.index += 1 
+    #data_wo_cleaned.set_index(['Email','Review','Sentiment'], inplace=True) to drop index and alight header left
     st.markdown(data_wo_cleaned.to_html(), unsafe_allow_html = True)
+
    
     md = st.markdown("""
     <style>
@@ -314,24 +319,23 @@ def main():
     if clients_button:
         negative_reviews_list = negatives_df['Review'].tolist() 
         negative_emails_list = negatives_df['Email'].tolist()
+        
         send_emails(negative_emails_list,negative_reviews_list, sender_email, password)
-        #st.markdown('<center><h2>Emails are sent successfully to all clients with negative reviews!</h2></center></br></br>', unsafe_allow_html= True)
+
         st.success("Emails are sent successfully to all clients with negative reviews!")
 
     crm_email = st.text_input('') 
     crm_button = st.button("Send Notification to Entered CRM Email")
         
     if crm_button and crm_email!='' and bool(re.search(r"^[\w\.\+\-]+\@[\w.-]+\.[a-z]{2,3}$", crm_email))==True:    
-        #crm_email = 'CBP.CRM.Team@gmail.com'
+
         mail_body = "Bonjour, \n\nVeuillez trouver le fichier joint des clients avec des avis négatifs. \n\nCordialement, "
         
         send_email_attach(crm_email, mail_body, negatives_df, sender_email, password)
-        #st.markdown('<center><h2>Email is sent successfully with all clients negative reviews to entered CRM email!</h2></center></br></br>', unsafe_allow_html= True)
         st.success("Email is sent successfully with all clients negative reviews to "+ crm_email)
      
     
     elif crm_button and (crm_email=='' or bool(re.search(r"^[\w\.\+\-]+\@[\w.-]+\.[a-z]{2,3}$", crm_email))==False): 
-        #st.markdown('<center><p style="color:red">Please enter valid email</p></center></br></br>', unsafe_allow_html= True)
         st.error("Please enter valid email")
         
         
