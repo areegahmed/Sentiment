@@ -11,6 +11,8 @@ import emoji
 import re
 import spacy
 from spacy.lang.fr.stop_words import STOP_WORDS
+from nltk.corpus import stopwords
+
 import string
 import pickle
 import streamlit as st
@@ -29,8 +31,9 @@ from email import encoders
 
 
 
-deselect_stop_words = ['plus','aucun','ni','aucune','rien','quot','amp','nbsp','ème']
-stop_words = set(STOP_WORDS).union(set(deselect_stop_words))
+deselect_stop_words = ['plus','aucun','ni','aucune','rien','quot','amp','nbsp','ème','€','bonjour']
+stop_words = set(STOP_WORDS).union(set(deselect_stop_words)) #adding spacy stop-words to extended list
+stop_words = stop_words.union(stopwords.words('french')) #add NLTK stop-words to it
 
 
 def remove_stopwords(text):
@@ -157,7 +160,11 @@ def map_keyword_review_df(keywords_list, df):
     return keyword_review_df            
 
 def plot_bar(df):
-    fig = px.histogram(df, x="Sentiment",color="Sentiment")
+    df = df.sort_values("Sentiment")
+    
+    fig = px.histogram(df, x="Sentiment", color="Sentiment",color_discrete_sequence=["red","blue","green"])
+
+    
     fig.update_layout(
         title_text='Sentiment Counts',
         xaxis_title_text='Sentiment',
@@ -169,14 +176,21 @@ def plot_bar(df):
 
     
 def plot_pie(df):
+    colors = ['red', 'blue','green']
+    
     Number_sentiment= df.groupby(["Sentiment"])["Review"].count().reset_index().reset_index(drop=True)
-    fig = px.pie(Number_sentiment, values=Number_sentiment['Review'], names=Number_sentiment['Sentiment'], color_discrete_sequence=px.colors.sequential.Emrld)
+    Number_sentiment=Number_sentiment.sort_values("Sentiment")
+    fig = px.pie(Number_sentiment, values=Number_sentiment['Review'], names=Number_sentiment['Sentiment'])
+    
+    fig.update_traces(hoverinfo='label+percent', textfont_size=20,
+                  marker=dict(colors=colors))#, line=dict(color='#000000', width=2)))
     fig.update_layout(title_text='Sentiment Percentages')
     st.plotly_chart(fig)
 
     
-def plot_bar_keywords(df):    
-    fig = px.histogram(df, x="Keyword",color="Sentiment")
+def plot_bar_keywords(df):
+    df = df.sort_values("Sentiment")
+    fig = px.histogram(df, x="Keyword",color="Sentiment" ,color_discrete_sequence=["red","blue","green"])
     fig.update_layout(
         title_text='Sentiment Count per Keyword',
         xaxis_title_text='Keyword',
@@ -202,18 +216,18 @@ def get_keywords(df):
     words_freq_df.sort_values('Frequency', inplace = True, ascending=False)
     
     words_freq_df.reset_index(drop=True, inplace=True)
-    words_freq_df = words_freq_df.head()
+    words_freq_df = words_freq_df.head(50)
     
     return words_freq_df
 
 
 def show_wordcloud(text,col1):
-    col1.title("Word Cloud for Top 5 Keywords:")
+    st.title("Word Cloud for Top 50 Keywords:")
     wordcloud = WordCloud().generate(text)
-    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.imshow(wordcloud, interpolation='bilinear', aspect='auto')#interpolation='bilinear')
     plt.axis("off")
     plt.show()
-    col1.pyplot(plt)    
+    st.pyplot(plt)    
 
 
 def infer_sentiment_single(data):
@@ -344,13 +358,16 @@ def main():
     keywords_list = keywords_df['Word'].tolist()
     keywords  = ' '.join(keywords_list).strip()
    
-    col1, col2 = st.beta_columns([2, 1])
-    show_wordcloud(keywords,col1)
+    #col1, col2 = st.beta_columns([2, 1])
+    show_wordcloud(keywords,st)
     
-    keywords_df.set_index(['Word','Frequency'], inplace=True)
+    ##keywords_df.set_index(['Word','Frequency'], inplace=True)
+    keywords_df.index += 1 
     
-    col2.title('Top 5 Keywords:')
-    col2.markdown( keywords_df.to_html(), unsafe_allow_html = True)
+    col0, col1, col2 = st.beta_columns([1,2, 1])
+    
+    col1.title('Top 50 Keywords:')
+    col1.markdown( keywords_df.to_html(), unsafe_allow_html = True)
     
     st.title('Sentiment Analysis Charts:')
     plot_bar(data)
