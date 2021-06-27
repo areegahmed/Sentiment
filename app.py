@@ -11,6 +11,8 @@ import emoji
 import re
 import spacy
 from spacy.lang.fr.stop_words import STOP_WORDS
+#nltk.download("stopwords")
+import nltk
 from nltk.corpus import stopwords
 
 import string
